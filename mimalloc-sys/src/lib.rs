@@ -15,6 +15,15 @@ extern "C" {
     pub fn mi_free_aligned(p: *mut c_void, alignment: usize);
 
     /// get the usable size of a pointer
-    fn mi_usable_size(p: *mut c_void) -> usize;
+    pub fn mi_usable_size(p: *mut c_void) -> usize;
+
+    /// libcompat malloc
+    pub fn mi_malloc(size: usize) -> *mut c_void;
+
+    /// libcompat realloc
+    pub fn mi_realloc(ptr: *mut c_void, new_size: usize) -> *mut c_void;
+
+    /// libcompat free
+    pub fn mi_free(ptr: *mut c_void);
     
 }

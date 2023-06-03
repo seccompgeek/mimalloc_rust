@@ -6,6 +6,8 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_void;
 use core::ptr;
 
+const MIN_ALIGN: usize = 16;
+
 #[global_allocator]
 pub static ALLOC: MetaSafeAlloc = MetaSafeAlloc;
 
@@ -16,12 +18,20 @@ pub struct MetaSafeAlloc;
 unsafe impl GlobalAlloc for MetaSafeAlloc {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if layout.align() < MIN_ALIGN {
+            return ffi::mi_malloc_aligned(layout.size(), MIN_ALIGN) as *mut u8;
+        }
         ffi::mi_malloc_aligned(layout.size(), layout.align()) as *mut u8
     }
 
     #[inline]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        let ptr = ffi::mi_malloc_aligned(layout.size(), layout.align());
+        let ptr = if layout.align() < MIN_ALIGN {
+            ffi::mi_malloc_aligned(layout.size(), MIN_ALIGN)
+        } else {
+            ffi::mi_malloc_aligned(layout.size(), layout.align())
+        };
+
         if !ptr.is_null() {
             ptr::write_bytes(ptr as *mut u8, 0, layout.size())
         }
@@ -35,21 +45,31 @@ unsafe impl GlobalAlloc for MetaSafeAlloc {
 
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        let align = if layout.align() < MIN_ALIGN { MIN_ALIGN } else {layout.align()};
         ffi::mi_realloc_aligned(ptr as *mut c_void, new_size, layout.align()) as *mut u8
     }
 }
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
+pub mod libc_compat {
     use super::*;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    #[inline]
+    pub unsafe fn malloc(size: usize) -> *mut u8 {
+        ffi::mi_malloc(size) as *mut u8
+    }
+
+    #[inline]
+    pub unsafe fn realloc(ptr: *mut u8, new_size: usize) -> *mut u8 {
+        ffi::mi_realloc(ptr as *mut c_void, new_size) as *mut u8
+    }
+
+    #[inline]
+    pub unsafe fn free(ptr: *mut u8){
+        ffi::mi_free(ptr as *mut c_void)
+    }
+
+    #[inline]
+    pub unsafe fn malloc_usable_size(ptr: *const u8) -> usize {
+        ffi::mi_usable_size(ptr as *mut c_void)
     }
 }
