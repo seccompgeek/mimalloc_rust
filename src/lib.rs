@@ -46,7 +46,7 @@ unsafe impl GlobalAlloc for MetaSafeAlloc {
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let align = if layout.align() < MIN_ALIGN { MIN_ALIGN } else {layout.align()};
-        ffi::mi_realloc_aligned(ptr as *mut c_void, new_size, layout.align()) as *mut u8
+        ffi::mi_realloc_aligned(ptr as *mut c_void, new_size, align) as *mut u8
     }
 }
 
